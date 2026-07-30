@@ -87,6 +87,9 @@ cargarlas en el shell antes de correr `./mvnw spring-boot:run`; no pedir ni pega
 - **Endpoints implementados** (solo lectura pública por ahora):
   - `GET /api/v1/posts` — paginado (`?page`, `?size`, default 10), solo `PUBLISHED`, orden `publishedAt` desc
   - `GET /api/v1/posts/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
+  - `GET /api/v1/experience` — lista completa ordenada por `displayOrder`, sin paginar (contenido acotado)
+  - `GET /api/v1/skills` — lista agrupada por `skillGroup` (`[{group, items: [{name, icon}]}]`); el agrupamiento se
+    hace en `SkillService` preservando el orden de `displayOrder` (`Collectors.groupingBy` con `LinkedHashMap`)
+  - `GET /api/v1/about` — lista de strings (los párrafos), sin DTO propio por ser un solo campo relevante
+  - `GET /api/v1/site` — `SiteProfileDto`; `404` si `site_profile` no tiene fila cargada todavía
   - `projects` y `certifications` tienen entidad y repositorio JPA pero ningún endpoint REST todavía.
-  - `experience`, `skills`, `about_paragraphs` y `site_profile` (agregadas en V2) solo tienen esquema de base de
-    datos por ahora — sin entidad JPA, repositorio ni endpoint.
