@@ -92,4 +92,8 @@ cargarlas en el shell antes de correr `./mvnw spring-boot:run`; no pedir ni pega
     hace en `SkillService` preservando el orden de `displayOrder` (`Collectors.groupingBy` con `LinkedHashMap`)
   - `GET /api/v1/about` — lista de strings (los párrafos), sin DTO propio por ser un solo campo relevante
   - `GET /api/v1/site` — `SiteProfileDto`; `404` si `site_profile` no tiene fila cargada todavía
-  - `projects` y `certifications` tienen entidad y repositorio JPA pero ningún endpoint REST todavía.
+  - `GET /api/v1/projects` — solo `PUBLISHED`, ordenado por `displayOrder`, sin paginar (contenido acotado, a
+    diferencia de posts)
+  - `GET /api/v1/projects/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
+  - `GET /api/v1/certifications` — lista completa ordenada por `displayOrder` (sin estado editorial, como
+    experience/skills/about)

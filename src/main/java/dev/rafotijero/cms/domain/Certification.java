@@ -29,9 +29,15 @@ public class Certification {
 
     private LocalDate issueDate;
 
+    private LocalDate issueDateEnd;
+
+    private String hours;
+
     private String credentialUrl;
 
     private String imageUrl;
+
+    private String institutionLogoUrl;
 
     private Integer displayOrder;
 }
