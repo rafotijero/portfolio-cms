@@ -38,10 +38,16 @@ del datasource (ver abajo) — los tests fallarán sin conectividad a la base de
 antes de correr la app o los tests:
 
 - `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `JWT_SECRET` — clave HMAC para firmar los JWT (sin default a propósito; la app no arranca sin ella). Generar con
+  algo como `openssl rand -base64 48`, nunca hardcodear un valor por defecto en el código.
+- `JWT_EXPIRATION_MINUTES` — opcional, default `720` (12h).
 
 La URL del datasource se construye como `jdbc:postgresql://${DB_HOST}/${DB_NAME}?sslmode=require` (apunta a Neon,
 por lo que SSL es obligatorio). Para desarrollo local, poner estas variables en un `.env.local` (gitignored) y
 cargarlas en el shell antes de correr `./mvnw spring-boot:run`; no pedir ni pegar credenciales en texto plano.
+
+No hay endpoint de registro (el CMS es de un solo admin). El usuario se siembra directo en la tabla `users` con un
+script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado la primera vez antes de reinventar otro.
 
 ## Arquitectura
 
@@ -56,12 +62,24 @@ cargarlas en el shell antes de correr `./mvnw spring-boot:run`; no pedir ni pega
   mapeo a DTO lanza `LazyInitializationException` fuera de la sesión de Hibernate.
 - **Paquetes**: `domain` (entidades JPA), `repository` (interfaces `JpaRepository`), `service` (lógica de negocio,
   transaccional), `api` + `api.dto` (controllers REST y DTOs como `record`), `config` (beans de configuración como
-  `SecurityConfig`). Las entidades nunca se exponen directamente en los controllers.
-- **Seguridad** (`config/SecurityConfig`): `GET /api/v1/**` es público salvo `/api/v1/admin/**` (requiere auth,
-  responde `401` — login/JWT todavía no implementado) y `/api/v1/auth/**` (denegado hasta que exista login). Sesión
-  `STATELESS`, CSRF deshabilitado. `/error` está explícitamente permitido: sin eso, el forward interno que hace
-  Spring para renderizar errores (404, 500) vuelve a pasar por el filtro de seguridad y queda bloqueado por la regla
-  de denegación general, enmascarando cualquier error real como `401`.
+  `SecurityConfig`), `security` (`JwtService`, `JwtAuthenticationFilter` — piezas específicas de JWT, separadas de
+  `config` para no mezclar la definición de la cadena de filtros con la lógica de tokens). Las entidades nunca se
+  exponen directamente en los controllers.
+- **Seguridad** (`config/SecurityConfig`): `GET /api/v1/**` es público salvo `/api/v1/admin/**` (requiere rol
+  `ADMIN` vía JWT) y `/api/v1/auth/**` (denegado salvo `POST /api/v1/auth/login`, el único endpoint público ahí).
+  Sesión `STATELESS`, CSRF deshabilitado. `/error` está explícitamente permitido: sin eso, el forward interno que
+  hace Spring para renderizar errores (404, 500) vuelve a pasar por el filtro de seguridad y queda bloqueado por la
+  regla de denegación general, enmascarando cualquier error real como `401`.
+- **JWT**: `JwtService` firma/valida con HMAC (`jwt.secret`, sin default — ver Configuración), subject = `username`,
+  claim `role`. `JwtAuthenticationFilter` (`OncePerRequestFilter`, registrado con `addFilterBefore` antes de
+  `UsernamePasswordAuthenticationFilter`) lee el header `Authorization: Bearer <token>`, valida y puebla el
+  `SecurityContext` con autoridad `ROLE_<role>`. Sin refresh tokens ni revocación — deliberadamente simple para un
+  CMS de un solo admin; la mitigación es una expiración corta (`jwt.expiration-minutes`, default 720 = 12h).
+  `UserDetailsServiceAutoConfiguration` está excluida en `application.yaml` (paquete
+  `org.springframework.boot.security.autoconfigure` en Spring Boot 4.1, distinto del paquete de versiones
+  anteriores) porque el login no pasa por `UserDetailsService`/`AuthenticationManager` — `AuthService` valida
+  directo contra `UserRepository` + `PasswordEncoder`, sin esa autoconfiguración quedaba un usuario en memoria con
+  password generado que no se usa para nada.
 - **Modelo de dominio** (todas las PKs son `UUID` vía `gen_random_uuid()` salvo donde se indica):
   - `users` — un único rol `ADMIN` (restringido por CHECK; es un CMS de un solo operador, no multi-tenant)
   - `posts` — posts de blog con estado `DRAFT`/`PUBLISHED`, ruteo por slug, etiquetados vía `post_tags`
@@ -84,7 +102,10 @@ cargarlas en el shell antes de correr `./mvnw spring-boot:run`; no pedir ni pega
     `idx_projects_status_order` están optimizados para esas consultas. `experience`, `skills`, `about_paragraphs` y
     `site_profile` no tienen estado `DRAFT`/`PUBLISHED`: son contenido simple sin flujo editorial, a diferencia de
     posts/projects.
-- **Endpoints implementados** (solo lectura pública por ahora):
+- **Endpoints implementados**:
+  - `POST /api/v1/auth/login` — `{username, password}` → `{token, expiresAt}`; `401` genérico si el usuario no
+    existe o la password no calza (mismo mensaje en ambos casos, para no filtrar qué username existe)
+  - Todo lo demás es lectura pública:
   - `GET /api/v1/posts` — paginado (`?page`, `?size`, default 10), solo `PUBLISHED`, orden `publishedAt` desc
   - `GET /api/v1/posts/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
   - `GET /api/v1/experience` — lista completa ordenada por `displayOrder`, sin paginar (contenido acotado)
