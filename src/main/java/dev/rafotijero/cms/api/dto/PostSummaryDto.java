@@ -1,5 +1,6 @@
 package dev.rafotijero.cms.api.dto;
 
+import dev.rafotijero.cms.domain.ContentStatus;
 import dev.rafotijero.cms.domain.Post;
 import dev.rafotijero.cms.domain.Tag;
 
@@ -11,6 +12,7 @@ public record PostSummaryDto(
         UUID id,
         String title,
         String slug,
+        ContentStatus status,
         String summary,
         String coverImageUrl,
         Instant publishedAt,
@@ -22,6 +24,7 @@ public record PostSummaryDto(
                 post.getId(),
                 post.getTitle(),
                 post.getSlug(),
+                post.getStatus(),
                 post.getSummary(),
                 post.getCoverImageUrl(),
                 post.getPublishedAt(),

@@ -102,10 +102,10 @@ script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado l
     `idx_projects_status_order` están optimizados para esas consultas. `experience`, `skills`, `about_paragraphs` y
     `site_profile` no tienen estado `DRAFT`/`PUBLISHED`: son contenido simple sin flujo editorial, a diferencia de
     posts/projects.
-- **Endpoints implementados**:
-  - `POST /api/v1/auth/login` — `{username, password}` → `{token, expiresAt}`; `401` genérico si el usuario no
-    existe o la password no calza (mismo mensaje en ambos casos, para no filtrar qué username existe)
-  - Todo lo demás es lectura pública:
+- **Conflictos de unicidad**: `GlobalExceptionHandler` (`api/GlobalExceptionHandler.java`) mapea
+  `DataIntegrityViolationException` → `409 Conflict` en vez del `500` que tirarían por defecto los `UNIQUE` de slugs
+  (`posts`, `projects`) y de `tags` (`name`, `slug`). Aplica a cualquier controller, no hay que repetir el manejo.
+- **Endpoints de lectura pública** (sin token):
   - `GET /api/v1/posts` — paginado (`?page`, `?size`, default 10), solo `PUBLISHED`, orden `publishedAt` desc
   - `GET /api/v1/posts/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
   - `GET /api/v1/experience` — lista completa ordenada por `displayOrder`, sin paginar (contenido acotado)
@@ -118,3 +118,26 @@ script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado l
   - `GET /api/v1/projects/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
   - `GET /api/v1/certifications` — lista completa ordenada por `displayOrder` (sin estado editorial, como
     experience/skills/about)
+- **Auth**:
+  - `POST /api/v1/auth/login` — `{username, password}` → `{token, expiresAt}`; `401` genérico si el usuario no
+    existe o la password no calza (mismo mensaje en ambos casos, para no filtrar qué username existe)
+- **Endpoints de escritura** (todos bajo `/api/v1/admin/**`, exigen JWT con rol `ADMIN`):
+  - `tags` — único recurso sin lectura pública propia (los posts solo exponen nombres de tag, no ids): CRUD completo
+    (`GET` lista, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`) en `AdminTagController`, necesario para poder
+    referenciar tags por id al crear/editar posts.
+  - `posts`, `projects` — además del CRUD (`POST`, `PUT /{id}`, `DELETE /{id}`), tienen `GET` (lista paginada /
+    lista simple) y `GET /{id}` bajo `admin` que devuelven **todos los estados** (`DRAFT` incluido), a diferencia
+    del endpoint público que solo muestra `PUBLISHED` — así el admin puede ver y editar borradores.
+    `PostRequest.tagIds` (`Set<UUID>`) resuelve contra `TagRepository`; si algún id no existe, `400`.
+    `PostSummaryDto`/`PostDetailDto`/`ProjectDto` incluyen `status` (y `ProjectDto` también `displayOrder`) — son
+    los mismos DTOs para lectura pública y admin, agregar el campo no expone nada sensible porque el público solo
+    ve `PUBLISHED` de todas formas.
+  - `certifications`, `experience`, `skills`, `about` — solo `POST`/`PUT /{id}`/`DELETE /{id}`, sin `GET` bajo
+    `admin`: como no tienen estado editorial, el endpoint público ya lista todo lo que existe, no hace falta
+    duplicarlo. `skills` y `about` sí necesitaron DTOs planos nuevos (`SkillDto`, `AboutParagraphDto`) porque las
+    respuestas públicas usan formas agregadas (`SkillGroupDto`, `List<String>`) que no sirven para editar una fila
+    individual.
+  - `site` — `PUT /api/v1/admin/site` únicamente (upsert): no hay `POST` ni `DELETE` porque `site_profile` es
+    singleton por esquema; `SiteProfileService.save` hace `findById(TRUE).orElseGet(new)` y guarda.
+  - **`media_assets` no tiene API todavía** (ni lectura ni escritura) — falta decidir dónde se guardan los archivos
+    (S3-compatible, Cloudflare R2, disco local) antes de construir upload; no es solo CRUD de metadata.

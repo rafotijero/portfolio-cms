@@ -13,4 +13,6 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     Optional<Project> findBySlug(String slug);
 
     List<Project> findByStatusOrderByDisplayOrderAsc(ContentStatus status);
+
+    List<Project> findAllByOrderByDisplayOrderAsc();
 }
