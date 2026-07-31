@@ -71,4 +71,4 @@ tienen `GET` bajo `admin` que muestra todos los estados, incluyendo `DRAFT`. `si
 
 ## Arquitectura
 
-El esquema de base de datos es propiedad de Flyway (`src/main/resources/db/migration/`), no de Hibernate — `ddl-auto` está en `validate`. Ver [CLAUDE.md](CLAUDE.md) para el detalle de arquitectura y convenciones del proyecto.
+El esquema de base de datos es propiedad de Flyway (`src/main/resources/db/migration/`), no de Hibernate — `ddl-auto` está en `validate`. Ver [CLAUDE.md](CLAUDE.md) para el detalle de arquitectura y convenciones del proyecto, y [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para el razonamiento detrás de las decisiones de diseño.
