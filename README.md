@@ -4,6 +4,9 @@ Backend headless CMS para un sitio de portfolio personal: API REST en Spring Boo
 
 Este repo es solo el backend/API. El sitio público que consume esta API vive en un repo aparte; la interfaz de administración de contenido está pensada como otro proyecto separado, aún no creado.
 
+Desplegado en Render: https://portfolio-cms-fphk.onrender.com (plan free — la primera request tras un rato de
+inactividad puede tardar unos segundos en responder mientras el servicio arranca de nuevo).
+
 ## Stack
 
 - Java 17 · Spring Boot 4.1.0
@@ -43,7 +46,7 @@ El servidor queda en `http://localhost:8080`.
 
 ## Endpoints disponibles
 
-Todos de solo lectura por ahora — el lado de escritura (`/api/v1/admin/**`) todavía no tiene login/JWT implementado.
+### Lectura pública
 
 - `GET /api/v1/posts` — lista paginada de posts publicados (`?page`, `?size`, default size 10), ordenados por fecha de publicación descendente.
 - `GET /api/v1/posts/{slug}` — detalle de un post publicado; `404` si no existe o no está publicado.
@@ -55,7 +58,16 @@ Todos de solo lectura por ahora — el lado de escritura (`/api/v1/admin/**`) to
 - `GET /api/v1/about` — párrafos de la sección "sobre mí".
 - `GET /api/v1/site` — configuración global del sitio (nombre, tagline, redes, CV); `404` si aún no se cargó.
 
-Las rutas bajo `/api/v1/admin/**` requieren autenticación (aún sin implementar; por ahora responden `401`).
+### Auth
+
+- `POST /api/v1/auth/login` — `{username, password}` → `{token, expiresAt}`.
+
+### Escritura (requieren `Authorization: Bearer <token>` de un usuario `ADMIN`)
+
+CRUD (`POST`, `PUT /{id}`, `DELETE /{id}`) bajo `/api/v1/admin/` para `posts`, `projects`, `certifications`,
+`experience`, `skills`, `about`, más `tags` (único recurso sin lectura pública propia). `posts` y `projects` además
+tienen `GET` bajo `admin` que muestra todos los estados, incluyendo `DRAFT`. `site` es `PUT /api/v1/admin/site`
+únicamente (upsert, es un singleton).
 
 ## Arquitectura
 

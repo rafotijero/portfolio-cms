@@ -15,6 +15,15 @@ la interfaz de administración de contenido (donde se escribe el contenido) est�
 - Paquete base: `dev.rafotijero.cms`
 - Herramienta de build: Maven (usar el wrapper, no un `mvn` del sistema)
 
+## Deployment
+
+Desplegado en Render (plan free, Docker) desde la rama `main` — cada push a `main` redespliega automáticamente.
+`Dockerfile` en la raíz hace build multi-stage con `mvnw` (requiere que `mvnw` mantenga el bit de ejecución en git;
+si `git ls-files -s mvnw` no muestra `100755`, el build de Docker falla con "Permission denied" — corregir con
+`git update-index --chmod=+x mvnw`). `server.port` lee `${PORT:8080}` porque Render asigna el puerto en runtime, no
+siempre 8080. Variables de entorno configuradas en el dashboard de Render (las mismas que en `.env.local`: `DB_HOST`,
+`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_MINUTES`).
+
 ## Comandos
 
 Usar el Maven wrapper (`mvnw.cmd` en Windows, `./mvnw` en Git Bash/WSL):
