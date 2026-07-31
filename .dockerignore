@@ -1,0 +1,7 @@
+target/
+.git/
+.idea/
+.claude/
+.env.local
+HELP.md
+*.md
