@@ -22,7 +22,8 @@ Desplegado en Render (plan free, Docker) desde la rama `main` — cada push a `m
 si `git ls-files -s mvnw` no muestra `100755`, el build de Docker falla con "Permission denied" — corregir con
 `git update-index --chmod=+x mvnw`). `server.port` lee `${PORT:8080}` porque Render asigna el puerto en runtime, no
 siempre 8080. Variables de entorno configuradas en el dashboard de Render (las mismas que en `.env.local`: `DB_HOST`,
-`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_MINUTES`).
+`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_MINUTES`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`, `CORS_ALLOWED_ORIGINS`).
 
 ## Comandos
 
@@ -50,6 +51,11 @@ antes de correr la app o los tests:
 - `JWT_SECRET` — clave HMAC para firmar los JWT (sin default a propósito; la app no arranca sin ella). Generar con
   algo como `openssl rand -base64 48`, nunca hardcodear un valor por defecto en el código.
 - `JWT_EXPIRATION_MINUTES` — opcional, default `720` (12h).
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` — credenciales y
+  bucket de Cloudflare R2 para `media_assets`. Ver [docs/MEDIA_UPLOADS.md](docs/MEDIA_UPLOADS.md) para cómo
+  crearlas.
+- `CORS_ALLOWED_ORIGINS` — opcional, default `http://localhost:5173` (dev de `portfolio-cms-admin`). Lista
+  separada por comas de orígenes permitidos para llamar a la API desde un browser (`config/SecurityConfig.java`).
 
 La URL del datasource se construye como `jdbc:postgresql://${DB_HOST}/${DB_NAME}?sslmode=require` (apunta a Neon,
 por lo que SSL es obligatorio). Para desarrollo local, poner estas variables en un `.env.local` (gitignored) y
@@ -78,7 +84,10 @@ script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado l
   `ADMIN` vía JWT) y `/api/v1/auth/**` (denegado salvo `POST /api/v1/auth/login`, el único endpoint público ahí).
   Sesión `STATELESS`, CSRF deshabilitado. `/error` está explícitamente permitido: sin eso, el forward interno que
   hace Spring para renderizar errores (404, 500) vuelve a pasar por el filtro de seguridad y queda bloqueado por la
-  regla de denegación general, enmascarando cualquier error real como `401`.
+  regla de denegación general, enmascarando cualquier error real como `401`. CORS habilitado vía
+  `CorsConfigurationSource` (origins desde `cors.allowed-origins`, ver Configuración) para que `portfolio-cms-admin`
+  (otro origen del browser) pueda llamar a la API; `OPTIONS /**` está permitido explícitamente porque si no, el
+  preflight cae en la regla de denegación general igual que pasaba con `/error`.
 - **JWT**: `JwtService` firma/valida con HMAC (`jwt.secret`, sin default — ver Configuración), subject = `username`,
   claim `role`. `JwtAuthenticationFilter` (`OncePerRequestFilter`, registrado con `addFilterBefore` antes de
   `UsernamePasswordAuthenticationFilter`) lee el header `Authorization: Bearer <token>`, valida y puebla el
@@ -111,9 +120,30 @@ script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado l
     `idx_projects_status_order` están optimizados para esas consultas. `experience`, `skills`, `about_paragraphs` y
     `site_profile` no tienen estado `DRAFT`/`PUBLISHED`: son contenido simple sin flujo editorial, a diferencia de
     posts/projects.
+- **Auditoría y borrado lógico** (`V3__auditoria_y_borrado_logico.sql`): `posts`, `projects`, `certifications`,
+  `experience`, `skills`, `about_paragraphs`, `tags` y `media_assets` tienen `created_at`/`updated_at` (menos
+  `media_assets`, que solo tiene `uploaded_at` — no hay endpoint de update) y `deleted_at` (nullable, `NULL` = no
+  borrado). `users` y `site_profile` quedan afuera a propósito: ninguno tiene endpoint `DELETE`. El mecanismo es
+  vía hooks de Hibernate en la entidad, no filtrado manual: `@SQLDelete` reemplaza el `DELETE FROM` real por un
+  `UPDATE ... SET deleted_at = now()`, y `@SQLRestriction("deleted_at IS NULL")` hace que toda consulta JPA
+  (`findAll`, `findById`, `findBySlug`, etc.) excluya automáticamente las filas borradas — ningún
+  service/repository/controller necesita saber que el borrado es lógico, `repository.delete(entity)` ya hace lo
+  correcto. `deletedAt` nunca se expone en ningún DTO (siempre sería `null` en cualquier respuesta real, gracias a
+  `@SQLRestriction`) ni se setea desde código de aplicación. En `media_assets` esto es asimétrico a propósito: el
+  `DELETE` sigue borrando el archivo real de R2 (`s3Client.deleteObject`, código de aplicación ajeno al hook), solo
+  la fila de metadata queda como soft-delete — no hay forma de "recuperar" el archivo, solo el rastro de auditoría.
+  **Gotcha de flush ya conocido** (mismo patrón que el bug de `MediaAsset.uploadedAt`, ver
+  `docs/TESTING.md`): todos los `create()`/`update()` de los services afectados usan `saveAndFlush`, no `save` —
+  con `save` a secas, `@CreationTimestamp`/`@UpdateTimestamp` quedan `null` en la respuesta porque Hibernate no
+  manda el INSERT/UPDATE real hasta un flush.
 - **Conflictos de unicidad**: `GlobalExceptionHandler` (`api/GlobalExceptionHandler.java`) mapea
-  `DataIntegrityViolationException` → `409 Conflict` en vez del `500` que tirarían por defecto los `UNIQUE` de slugs
-  (`posts`, `projects`) y de `tags` (`name`, `slug`). Aplica a cualquier controller, no hay que repetir el manejo.
+  `DataIntegrityViolationException` → `409 Conflict` en vez del `500` que tirarían por defecto los índices únicos de
+  slugs (`posts`, `projects`) y de `tags` (`name`, `slug`). Desde `V3`, esos ya no son `UNIQUE` de columna simple
+  sino **índices únicos parciales** (`CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL`): un `UNIQUE` inline
+  bloquearía reusar un `name`/`slug` después de un borrado lógico, porque la fila "borrada" sigue existiendo
+  físicamente con ese valor. Cualquier migración futura que agregue una columna `UNIQUE` a una tabla con
+  `deleted_at` debe usar este mismo patrón de índice parcial, no un `UNIQUE` inline. Aplica a cualquier controller,
+  no hay que repetir el manejo.
 - **Endpoints de lectura pública** (sin token):
   - `GET /api/v1/posts` — paginado (`?page`, `?size`, default 10), solo `PUBLISHED`, orden `publishedAt` desc
   - `GET /api/v1/posts/{slug}` — detalle; `404` si no existe o no está `PUBLISHED`
@@ -148,5 +178,8 @@ script puntual que hashea con `BCryptPasswordEncoder` — ver el patrón usado l
     individual.
   - `site` — `PUT /api/v1/admin/site` únicamente (upsert): no hay `POST` ni `DELETE` porque `site_profile` es
     singleton por esquema; `SiteProfileService.save` hace `findById(TRUE).orElseGet(new)` y guarda.
-  - **`media_assets` no tiene API todavía** (ni lectura ni escritura) — falta decidir dónde se guardan los archivos
-    (S3-compatible, Cloudflare R2, disco local) antes de construir upload; no es solo CRUD de metadata.
+  - `media` — `GET`/`POST` (`multipart/form-data`, campo `file`)/`DELETE /{id}` bajo `/api/v1/admin/media`, sin
+    lectura pública propia (igual que `tags`): el admin sube el archivo a Cloudflare R2 y copia la URL pública que
+    devuelve a mano en el campo de texto plano que corresponda (`Post.coverImageUrl`, `SiteProfile.cvUrl`, etc. —
+    ninguno tiene FK a `media_assets`). Ver [docs/MEDIA_UPLOADS.md](docs/MEDIA_UPLOADS.md) para el detalle de
+    implementación y cómo crear el bucket.

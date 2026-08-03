@@ -71,7 +71,8 @@ class AdminTagControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value(name));
 
-        String updatedName = "test-tag-updated-" + UUID.randomUUID();
+        // tags.name es VARCHAR(50); un UUID completo (36) + este prefijo se pasaria del limite.
+        String updatedName = "test-tag-upd-" + UUID.randomUUID().toString().substring(0, 8);
         String updateBody = """
                 {"name": "%s", "slug": "%s"}
                 """.formatted(updatedName, slug);
@@ -130,6 +131,45 @@ class AdminTagControllerTest {
         } finally {
             tagRepository.deleteById(UUID.fromString(id));
         }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void nameAndSlugCanBeReusedAfterSoftDelete() throws Exception {
+        // Same NOT_SUPPORTED reasoning as createWithDuplicateNameReturnsConflict: the
+        // soft-delete's UPDATE (via @SQLDelete) also needs a real per-request flush to
+        // actually free up the partial unique index before the second create runs.
+        String name = "test-tag-" + UUID.randomUUID();
+        String slug = "test-slug-" + UUID.randomUUID();
+
+        String firstBody = """
+                {"name": "%s", "slug": "%s"}
+                """.formatted(name, slug);
+
+        String firstResponse = mockMvc.perform(post("/api/v1/admin/tags")
+                        .header("Authorization", authHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(firstBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String firstId = com.jayway.jsonpath.JsonPath.read(firstResponse, "$.id");
+
+        mockMvc.perform(delete("/api/v1/admin/tags/{id}", firstId)
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isNoContent());
+
+        // El primer tag ya quedo soft-deleted (deleted_at seteado) por el DELETE de arriba;
+        // solo hace falta limpiar el segundo, que es el que queda "activo".
+        String secondResponse = mockMvc.perform(post("/api/v1/admin/tags")
+                        .header("Authorization", authHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(firstBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String secondId = com.jayway.jsonpath.JsonPath.read(secondResponse, "$.id");
+        tagRepository.deleteById(UUID.fromString(secondId));
     }
 
     @Test

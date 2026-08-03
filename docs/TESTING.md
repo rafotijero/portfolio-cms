@@ -25,16 +25,21 @@ Esto funciona porque MockMvc ejecuta todo en el mismo hilo (sin `webEnvironment 
 Tomcat real en otro hilo y rompería el truco): los métodos `@Transactional` de los services (con propagación
 `REQUIRED` por defecto) se unen a la transacción del test en vez de abrir una propia.
 
-**Excepción:** para probar que un conflicto real de base de datos (`409` vía `GlobalExceptionHandler`) efectivamente
-ocurre, un test necesita que el `INSERT` llegue de verdad a Postgres *durante* el request — y bajo rollback
-compartido eso no pasa (ver el detalle técnico en el gotcha de flush más abajo). `AdminTagControllerTest.
-createWithDuplicateNameReturnsConflict` es el único test que marca `@Transactional(propagation =
-Propagation.NOT_SUPPORTED)` a nivel de método para ese caso puntual, y limpia manualmente la fila creada en un
-`finally`.
+**Excepción:** para probar que un efecto real de base de datos (un conflicto `409`, o que un `name`/`slug` se
+libera tras un borrado lógico) efectivamente ocurre, un test necesita que el `INSERT`/`UPDATE` llegue de verdad a
+Postgres *durante* el request — y bajo rollback compartido eso no pasa (ver el detalle técnico en el gotcha de
+flush más abajo). Dos tests en `AdminTagControllerTest` marcan `@Transactional(propagation =
+Propagation.NOT_SUPPORTED)` a nivel de método por esta razón, con limpieza manual de las filas creadas:
+`createWithDuplicateNameReturnsConflict` (el `409` real) y `nameAndSlugCanBeReusedAfterSoftDelete` (prueba que el
+índice único parcial de `V3__auditoria_y_borrado_logico.sql` realmente libera el valor tras un soft-delete — ver
+CLAUDE.md, sección "Auditoría y borrado lógico").
 
 **Valores únicos:** como la base compartida ya tiene contenido real (es la misma de producción), cualquier
 `slug`/`name`/`company` que un test cree debe ser aleatorio (`"test-" + UUID.randomUUID()`) para no chocar con
-datos reales ni con los `UNIQUE` que `GlobalExceptionHandler` mapea a `409`.
+datos reales ni con los índices únicos que `GlobalExceptionHandler` mapea a `409`. Ojo con el largo de columna: un
+prefijo largo + UUID completo puede superar un `VARCHAR(N)` chico (pasó con `tags.name VARCHAR(50)` — un
+`"test-tag-updated-" + UUID.randomUUID()` de 54 caracteres solo se detectó al activar `saveAndFlush`, antes quedaba
+enmascarado porque el `UPDATE` nunca llegaba a Postgres).
 
 ## Autenticación en los tests
 
@@ -67,11 +72,12 @@ prueba en el bucket real.
   de URI, no archivos. Hay que encadenar `.file(...)` explícitamente o el archivo nunca se adjunta (el controller
   ve "Required part 'file' is not present" en vez de fallar por otra razón).
 - **Timing de flush de JPA:** con `GenerationType.UUID` (el id se asigna en memoria en `persist()`, a diferencia
-  de `IDENTITY`), `repository.save()` no manda el `INSERT` real a Postgres hasta un flush. Bajo el rollback
-  compartido del test, ese flush nunca ocurre a menos que algo lo fuerce — por eso dos `POST` seguidos creando el
-  mismo `name`/`slug` devuelven `201` los dos si no se resuelve este problema (ver la excepción documentada arriba
-  para `createWithDuplicateNameReturnsConflict`). El mismo mecanismo explica por qué `@CreationTimestamp` puede
-  quedar `null` justo después de un `save()` sin flush explícito.
+  de `IDENTITY`), `repository.save()` no manda el `INSERT`/`UPDATE` real a Postgres hasta un flush. Bajo el
+  rollback compartido del test, ese flush nunca ocurre a menos que algo lo fuerce — por eso dos `POST` seguidos
+  creando el mismo `name`/`slug` devuelven `201` los dos si no se resuelve este problema (ver la excepción
+  documentada arriba). El mismo mecanismo explica por qué `@CreationTimestamp`/`@UpdateTimestamp` pueden quedar
+  `null` justo después de un `save()` sin flush explícito — por eso todos los `create()`/`update()` de los
+  services con estos campos usan `saveAndFlush`, no `save` (ver CLAUDE.md, "Auditoría y borrado lógico").
 - **`ResponseStatusException` no tiene body JSON por defecto** en este proyecto (`spring.mvc.problemdetails.enabled`
   no está prendido) — el mensaje solo se puede leer vía `response.getErrorMessage()`, no con `jsonPath("$.detail")`.
   Solo lo que `GlobalExceptionHandler` mapea explícitamente (como `DataIntegrityViolationException` → `409`)

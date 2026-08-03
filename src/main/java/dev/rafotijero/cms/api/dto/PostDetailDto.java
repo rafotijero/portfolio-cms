@@ -17,7 +17,9 @@ public record PostDetailDto(
         String content,
         String coverImageUrl,
         Instant publishedAt,
-        List<String> tags
+        List<String> tags,
+        Instant createdAt,
+        Instant updatedAt
 ) {
 
     public static PostDetailDto from(Post post) {
@@ -30,7 +32,9 @@ public record PostDetailDto(
                 post.getContent(),
                 post.getCoverImageUrl(),
                 post.getPublishedAt(),
-                post.getTags().stream().map(Tag::getName).toList()
+                post.getTags().stream().map(Tag::getName).toList(),
+                post.getCreatedAt(),
+                post.getUpdatedAt()
         );
     }
 }

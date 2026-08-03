@@ -32,14 +32,14 @@ public class CertificationService {
     public CertificationDto create(CertificationRequest request) {
         Certification certification = new Certification();
         apply(certification, request);
-        return CertificationDto.from(certificationRepository.save(certification));
+        return CertificationDto.from(certificationRepository.saveAndFlush(certification));
     }
 
     @Transactional
     public CertificationDto update(UUID id, CertificationRequest request) {
         Certification certification = getOrThrow(id);
         apply(certification, request);
-        return CertificationDto.from(certificationRepository.save(certification));
+        return CertificationDto.from(certificationRepository.saveAndFlush(certification));
     }
 
     @Transactional

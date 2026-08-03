@@ -2,6 +2,7 @@ package dev.rafotijero.cms.api.dto;
 
 import dev.rafotijero.cms.domain.Certification;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -14,7 +15,9 @@ public record CertificationDto(
         String hours,
         String credentialUrl,
         String imageUrl,
-        String institutionLogoUrl
+        String institutionLogoUrl,
+        Instant createdAt,
+        Instant updatedAt
 ) {
 
     public static CertificationDto from(Certification certification) {
@@ -27,7 +30,9 @@ public record CertificationDto(
                 certification.getHours(),
                 certification.getCredentialUrl(),
                 certification.getImageUrl(),
-                certification.getInstitutionLogoUrl()
+                certification.getInstitutionLogoUrl(),
+                certification.getCreatedAt(),
+                certification.getUpdatedAt()
         );
     }
 }

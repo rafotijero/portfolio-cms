@@ -32,14 +32,14 @@ public class AboutService {
     public AboutParagraphDto create(AboutParagraphRequest request) {
         AboutParagraph paragraph = new AboutParagraph();
         apply(paragraph, request);
-        return AboutParagraphDto.from(aboutParagraphRepository.save(paragraph));
+        return AboutParagraphDto.from(aboutParagraphRepository.saveAndFlush(paragraph));
     }
 
     @Transactional
     public AboutParagraphDto update(UUID id, AboutParagraphRequest request) {
         AboutParagraph paragraph = getOrThrow(id);
         apply(paragraph, request);
-        return AboutParagraphDto.from(aboutParagraphRepository.save(paragraph));
+        return AboutParagraphDto.from(aboutParagraphRepository.saveAndFlush(paragraph));
     }
 
     @Transactional

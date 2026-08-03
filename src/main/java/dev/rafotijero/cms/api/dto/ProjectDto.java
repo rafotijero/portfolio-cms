@@ -3,6 +3,7 @@ package dev.rafotijero.cms.api.dto;
 import dev.rafotijero.cms.domain.ContentStatus;
 import dev.rafotijero.cms.domain.Project;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +18,9 @@ public record ProjectDto(
         String liveUrl,
         String coverImageUrl,
         boolean featured,
-        Integer displayOrder
+        Integer displayOrder,
+        Instant createdAt,
+        Instant updatedAt
 ) {
 
     public static ProjectDto from(Project project) {
@@ -32,7 +35,9 @@ public record ProjectDto(
                 project.getLiveUrl(),
                 project.getCoverImageUrl(),
                 project.isFeatured(),
-                project.getDisplayOrder()
+                project.getDisplayOrder(),
+                project.getCreatedAt(),
+                project.getUpdatedAt()
         );
     }
 }

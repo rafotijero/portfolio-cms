@@ -64,6 +64,24 @@ los controllers a la vez, en vez de repetir ese `try/catch` en cada uno. Los có
 `201` al crear, `204` al borrar, `400` en validación, `401`/`404`/`409` donde corresponde — no todo es `200` o
 `500`.
 
+## Borrado lógico vía hooks de Hibernate, no filtrado manual
+
+Cuando se agregó auditoría (`created_at`/`updated_at`) y borrado lógico (`deleted_at`) a la mayoría de los
+recursos, la alternativa obvia era agregar `WHERE deleted_at IS NULL` a mano en cada query de cada repository, y
+cambiar cada `service.delete()` para hacer un `UPDATE` en vez de un `DELETE`. Se descartó a propósito: son
+docenas de lugares para acordarse de repetir el mismo filtro, y un solo query nuevo que se olvide de agregarlo
+filtra filas borradas silenciosamente. En cambio, se usan dos anotaciones de Hibernate a nivel de entidad —
+`@SQLDelete` (reemplaza el `DELETE FROM` real por un `UPDATE ... SET deleted_at = now()`) y `@SQLRestriction`
+(agrega `deleted_at IS NULL` a toda consulta JPA sobre esa entidad, automáticamente). El resultado: ni una sola
+línea cambió en ningún `service`, `repository` o `controller` existente — el borrado lógico es invisible para todo
+el código de aplicación, la garantía vive en un solo lugar (la entidad), no en cada punto de uso.
+
+El costo de esta elección: los `UNIQUE` de columna simple que ya existían (`tags.name`, `tags.slug`,
+`posts.slug`, `projects.slug`) tuvieron que convertirse en índices únicos parciales
+(`CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL`) — un `UNIQUE` inline habría bloqueado reusar un valor después
+de un borrado lógico, porque la fila "borrada" sigue existiendo físicamente. Ver CLAUDE.md, sección "Auditoría y
+borrado lógico", para el detalle completo.
+
 ## Sin secretos con valor por defecto
 
 `JWT_SECRET` no tiene default en el código — si falta, la aplicación no arranca. Es intencional: un valor "de

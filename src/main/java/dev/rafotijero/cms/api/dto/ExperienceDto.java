@@ -2,6 +2,7 @@ package dev.rafotijero.cms.api.dto;
 
 import dev.rafotijero.cms.domain.Experience;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -14,7 +15,9 @@ public record ExperienceDto(
         LocalDate endDate,
         String summary,
         List<String> techStack,
-        String logoUrl
+        String logoUrl,
+        Instant createdAt,
+        Instant updatedAt
 ) {
 
     public static ExperienceDto from(Experience experience) {
@@ -26,7 +29,9 @@ public record ExperienceDto(
                 experience.getEndDate(),
                 experience.getSummary(),
                 experience.getTechStack(),
-                experience.getLogoUrl()
+                experience.getLogoUrl(),
+                experience.getCreatedAt(),
+                experience.getUpdatedAt()
         );
     }
 }

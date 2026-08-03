@@ -59,14 +59,14 @@ public class PostService {
     public PostDetailDto create(PostRequest request) {
         Post post = new Post();
         apply(post, request);
-        return PostDetailDto.from(postRepository.save(post));
+        return PostDetailDto.from(postRepository.saveAndFlush(post));
     }
 
     @Transactional
     public PostDetailDto update(UUID id, PostRequest request) {
         Post post = getOrThrow(id);
         apply(post, request);
-        return PostDetailDto.from(postRepository.save(post));
+        return PostDetailDto.from(postRepository.saveAndFlush(post));
     }
 
     @Transactional

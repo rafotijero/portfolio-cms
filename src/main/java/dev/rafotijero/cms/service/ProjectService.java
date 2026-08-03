@@ -51,14 +51,14 @@ public class ProjectService {
     public ProjectDto create(ProjectRequest request) {
         Project project = new Project();
         apply(project, request);
-        return ProjectDto.from(projectRepository.save(project));
+        return ProjectDto.from(projectRepository.saveAndFlush(project));
     }
 
     @Transactional
     public ProjectDto update(UUID id, ProjectRequest request) {
         Project project = getOrThrow(id);
         apply(project, request);
-        return ProjectDto.from(projectRepository.save(project));
+        return ProjectDto.from(projectRepository.saveAndFlush(project));
     }
 
     @Transactional

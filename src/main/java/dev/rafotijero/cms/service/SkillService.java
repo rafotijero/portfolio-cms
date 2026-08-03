@@ -45,14 +45,14 @@ public class SkillService {
     public SkillDto create(SkillRequest request) {
         Skill skill = new Skill();
         apply(skill, request);
-        return SkillDto.from(skillRepository.save(skill));
+        return SkillDto.from(skillRepository.saveAndFlush(skill));
     }
 
     @Transactional
     public SkillDto update(UUID id, SkillRequest request) {
         Skill skill = getOrThrow(id);
         apply(skill, request);
-        return SkillDto.from(skillRepository.save(skill));
+        return SkillDto.from(skillRepository.saveAndFlush(skill));
     }
 
     @Transactional

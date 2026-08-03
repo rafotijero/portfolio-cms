@@ -9,12 +9,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "media_assets")
+@SQLDelete(sql = "UPDATE media_assets SET deleted_at = now() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -34,4 +38,6 @@ public class MediaAsset {
 
     @CreationTimestamp
     private Instant uploadedAt;
+
+    private Instant deletedAt;
 }

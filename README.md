@@ -42,6 +42,9 @@ R2_ACCESS_KEY_ID=tu-access-key-id
 R2_SECRET_ACCESS_KEY=tu-secret-access-key
 R2_BUCKET_NAME=tu-bucket
 R2_PUBLIC_URL=https://tu-dominio-publico
+
+# CORS (para permitir llamadas desde portfolio-cms-admin en el browser)
+CORS_ALLOWED_ORIGINS=http://localhost:5173   # opcional, ese es el default
 ```
 
 Ver [docs/MEDIA_UPLOADS.md](docs/MEDIA_UPLOADS.md) para cómo crear el bucket de R2 y obtener esos valores.

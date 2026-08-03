@@ -33,14 +33,14 @@ public class ExperienceService {
     public ExperienceDto create(ExperienceRequest request) {
         Experience experience = new Experience();
         apply(experience, request);
-        return ExperienceDto.from(experienceRepository.save(experience));
+        return ExperienceDto.from(experienceRepository.saveAndFlush(experience));
     }
 
     @Transactional
     public ExperienceDto update(UUID id, ExperienceRequest request) {
         Experience experience = getOrThrow(id);
         apply(experience, request);
-        return ExperienceDto.from(experienceRepository.save(experience));
+        return ExperienceDto.from(experienceRepository.saveAndFlush(experience));
     }
 
     @Transactional

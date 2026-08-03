@@ -34,14 +34,14 @@ public class TagService {
     public TagDto create(TagRequest request) {
         Tag tag = new Tag();
         apply(tag, request);
-        return TagDto.from(tagRepository.save(tag));
+        return TagDto.from(tagRepository.saveAndFlush(tag));
     }
 
     @Transactional
     public TagDto update(UUID id, TagRequest request) {
         Tag tag = getOrThrow(id);
         apply(tag, request);
-        return TagDto.from(tagRepository.save(tag));
+        return TagDto.from(tagRepository.saveAndFlush(tag));
     }
 
     @Transactional
