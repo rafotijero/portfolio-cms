@@ -21,14 +21,28 @@ inactividad puede tardar unos segundos en responder mientras el servicio arranca
 
 ## Configuración
 
-La app lee el datasource desde variables de entorno:
+La app lee toda la configuración sensible desde variables de entorno:
 
 ```
+# Datasource (PostgreSQL / Neon)
 DB_HOST=tu-host.neon.tech
 DB_NAME=tu_db
 DB_USER=tu_user
 DB_PASSWORD=tu_password
+
+# JWT
+JWT_SECRET=una-clave-larga-generada-con-openssl-rand-base64-48
+JWT_EXPIRATION_MINUTES=720   # opcional, default 720 (12h)
+
+# Cloudflare R2 (almacenamiento de media_assets, S3-compatible)
+R2_ACCOUNT_ID=tu-account-id
+R2_ACCESS_KEY_ID=tu-access-key-id
+R2_SECRET_ACCESS_KEY=tu-secret-access-key
+R2_BUCKET_NAME=tu-bucket
+R2_PUBLIC_URL=https://tu-dominio-publico
 ```
+
+Ver [docs/MEDIA_UPLOADS.md](docs/MEDIA_UPLOADS.md) para cómo crear el bucket de R2 y obtener esos valores.
 
 ## Correr localmente
 
@@ -43,6 +57,10 @@ El servidor queda en `http://localhost:8080`.
 ```
 ./mvnw test
 ```
+
+No hay perfil de datasource separado para tests: corren contra la misma base de datos real configurada arriba
+(con rollback transaccional automático para no dejar datos de prueba). Ver [docs/TESTING.md](docs/TESTING.md)
+para la estrategia completa.
 
 ## Endpoints disponibles
 
@@ -68,6 +86,11 @@ CRUD (`POST`, `PUT /{id}`, `DELETE /{id}`) bajo `/api/v1/admin/` para `posts`, `
 `experience`, `skills`, `about`, más `tags` (único recurso sin lectura pública propia). `posts` y `projects` además
 tienen `GET` bajo `admin` que muestra todos los estados, incluyendo `DRAFT`. `site` es `PUT /api/v1/admin/site`
 únicamente (upsert, es un singleton).
+
+- `GET /api/v1/admin/media` — lista de archivos subidos, más recientes primero.
+- `POST /api/v1/admin/media` — sube un archivo (`multipart/form-data`, campo `file`) a Cloudflare R2 y guarda su
+  metadata; devuelve la URL pública para usarla en cualquier otro recurso (imagen de post/proyecto, CV, etc.).
+- `DELETE /api/v1/admin/media/{id}` — borra el archivo de R2 y su fila.
 
 ## Arquitectura
 
