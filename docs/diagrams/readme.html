@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>portfolio-cms — Vista general</title>
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#f7f8fa; --panel:#ffffff; --text:#1c2128; --muted:#57606a; --border:#d0d7de;
+  --public:#1a7f37; --admin:#9a6700; --infra:#57606a; --db:#0969da; --r2:#f6821f; --code:#f0f2f5;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --border:#30363d;
+    --public:#3fb950; --admin:#d29922; --infra:#8b949e; --db:#58a6ff; --r2:#ffa04d; --code:#1c2128; }
+}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1.25rem 4rem;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:880px;margin:0 auto}
+h1{font-size:1.4rem;margin-bottom:.2rem}
+.subtitle{color:var(--muted);margin-top:0;margin-bottom:2rem;font-size:.92rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);
+  padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+.box{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:.9rem 1.1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.arrow{text-align:center;color:var(--muted);font-size:1.3rem;line-height:1;margin:.15rem 0}
+.step-title{font-weight:600;margin-bottom:.15rem}
+.step-detail{color:var(--muted);font-size:.85rem}
+.badge{display:inline-block;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;margin-bottom:.4rem}
+.badge-public{background:rgba(26,127,55,.15);color:var(--public)}
+.badge-infra{background:rgba(87,96,106,.15);color:var(--infra)}
+.badge-db{background:rgba(9,105,218,.15);color:var(--db)}
+.badge-r2{background:rgba(246,130,31,.15);color:var(--r2)}
+.row{display:flex;gap:1rem;flex-wrap:wrap}
+.col{flex:1;min-width:200px}
+.note{margin-top:2.2rem;padding-top:1.4rem;border-top:1px solid var(--border);font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>portfolio-cms — vista general</h1>
+  <p class="subtitle">Dónde vive este repo dentro del ecosistema completo del portfolio. Ver <code>README.md</code>.</p>
+
+  <div class="row">
+    <div class="col box"><div class="step-title">portfolio</div><div class="step-detail">Sitio público (Astro), consume la API. Repo aparte.</div></div>
+    <div class="col box"><div class="step-title">portfolio-cms-admin</div><div class="step-detail">Interfaz para escribir contenido. Aún no existe — repo aparte, futuro.</div></div>
+    <div class="col box"><div class="step-title">curl / Postman</div><div class="step-detail">Uso directo mientras no existe UI de admin.</div></div>
+  </div>
+  <div class="arrow">↓ ↓ ↓</div>
+
+  <div class="box">
+    <span class="badge badge-infra">ESTE REPO</span>
+    <div class="step-title">portfolio-cms — API REST (Spring Boot 4.1, Java 17)</div>
+    <div class="step-detail">Empaquetado en Docker, corriendo en Render (plan free). Expone <code>/api/v1/**</code> público y <code>/api/v1/admin/**</code> protegido con JWT.</div>
+  </div>
+  <div class="arrow">↓</div>
+
+  <div class="row">
+    <div class="col box">
+      <span class="badge badge-db">DATOS</span>
+      <div class="step-title">PostgreSQL (Neon)</div>
+      <div class="step-detail">Todo el contenido: posts, projects, certifications, experience, skills, about, site_profile, tags, media_assets (metadata).</div>
+    </div>
+    <div class="col box">
+      <span class="badge badge-r2">ARCHIVOS</span>
+      <div class="step-title">Cloudflare R2</div>
+      <div class="step-detail">Los archivos subidos vía <code>/api/v1/admin/media</code>, servidos públicamente desde <code>media.rafotijero.dev</code>.</div>
+    </div>
+  </div>
+
+  <div class="note">
+    Detalle de cada pieza: <code>docs/ARCHITECTURE.md</code> (por qué), <code>CLAUDE.md</code> (qué existe y dónde),
+    <code>docs/REQUEST_FLOW.md</code> (cómo viaja un request + build/deploy), <code>docs/MEDIA_UPLOADS.md</code> (R2),
+    <code>docs/TESTING.md</code> (tests).
+  </div>
+</div>
+</body>
+</html>

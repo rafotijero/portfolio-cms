@@ -4,6 +4,8 @@ Backend headless CMS para un sitio de portfolio personal: API REST en Spring Boo
 
 Este repo es solo el backend/API. El sitio público que consume esta API vive en un repo aparte; la interfaz de administración de contenido está pensada como otro proyecto separado, aún no creado.
 
+Diagrama: [docs/diagrams/readme.html](docs/diagrams/readme.html)
+
 Desplegado en Render: https://portfolio-cms-fphk.onrender.com (plan free — la primera request tras un rato de
 inactividad puede tardar unos segundos en responder mientras el servicio arranca de nuevo).
 
@@ -94,4 +96,4 @@ tienen `GET` bajo `admin` que muestra todos los estados, incluyendo `DRAFT`. `si
 
 ## Arquitectura
 
-El esquema de base de datos es propiedad de Flyway (`src/main/resources/db/migration/`), no de Hibernate — `ddl-auto` está en `validate`. Ver [CLAUDE.md](CLAUDE.md) para el detalle de arquitectura y convenciones del proyecto, y [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para el razonamiento detrás de las decisiones de diseño.
+El esquema de base de datos es propiedad de Flyway (`src/main/resources/db/migration/`), no de Hibernate — `ddl-auto` está en `validate`. Ver [CLAUDE.md](CLAUDE.md) para el detalle de arquitectura y convenciones del proyecto, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para el razonamiento detrás de las decisiones de diseño, y [docs/REQUEST_FLOW.md](docs/REQUEST_FLOW.md) para el recorrido de un request, el `Dockerfile` y el despliegue.

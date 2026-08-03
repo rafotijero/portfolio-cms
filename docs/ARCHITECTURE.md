@@ -1,8 +1,10 @@
 # Arquitectura y decisiones de diseño
 
+Diagrama: [diagrams/architecture.html](diagrams/architecture.html)
+
 Este documento explica el *por qué* detrás de las decisiones estructurales de `portfolio-cms`. Para comandos y
 referencia rápida de "qué existe y dónde", ver [`CLAUDE.md`](../CLAUDE.md); para instrucciones de setup, el
-[`README.md`](../README.md).
+[`README.md`](../README.md); para el recorrido de un request de punta a punta, [`REQUEST_FLOW.md`](REQUEST_FLOW.md).
 
 ## Estilo: Controller-Service-Repository, no MVC
 

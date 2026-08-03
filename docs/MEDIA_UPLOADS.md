@@ -1,5 +1,7 @@
 # media_assets y Cloudflare R2
 
+Diagrama: [diagrams/media-uploads.html](diagrams/media-uploads.html)
+
 `media_assets` guarda solo metadata (`filename`, `url`, `contentType`, `sizeBytes`, `uploadedAt`) — los archivos en
 sí viven en un bucket de Cloudflare R2 (S3-compatible). Otros recursos (`Certification.imageUrl`,
 `SiteProfile.cvUrl`, `Project.coverImageUrl`, etc.) no tienen FK a `media_assets`: son campos de texto planos, así

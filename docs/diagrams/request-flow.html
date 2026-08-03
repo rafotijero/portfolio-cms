@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>portfolio-cms — Flujo de request, Docker y despliegue</title>
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#f7f8fa; --panel:#ffffff; --text:#1c2128; --muted:#57606a; --border:#d0d7de;
+  --public:#1a7f37; --admin:#9a6700; --infra:#57606a; --db:#0969da; --bad:#cf222e; --code:#f0f2f5;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --border:#30363d;
+    --public:#3fb950; --admin:#d29922; --infra:#8b949e; --db:#58a6ff; --bad:#f85149; --code:#1c2128; }
+}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1.25rem 4rem;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:920px;margin:0 auto}
+h1{font-size:1.4rem;margin-bottom:.2rem}
+h2{font-size:1.05rem;margin:2.4rem 0 .8rem}
+.subtitle{color:var(--muted);margin-top:0;margin-bottom:2rem;font-size:.92rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);
+  padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+.box{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:.8rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.arrow{text-align:center;color:var(--muted);font-size:1.2rem;line-height:1;margin:.05rem 0}
+.step-title{font-weight:600;margin-bottom:.1rem;font-size:.92rem}
+.step-detail{color:var(--muted);font-size:.8rem}
+.badge{display:inline-block;font-size:.66rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;margin-bottom:2rem}
+.badge-public{background:rgba(26,127,55,.15);color:var(--public)}
+.badge-admin{background:rgba(154,103,0,.15);color:var(--admin)}
+.badge-bad{background:rgba(207,34,46,.15);color:var(--bad)}
+.row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem}
+.col{flex:1;min-width:280px}
+.num{display:inline-flex;align-items:center;justify-content:center;width:1.3rem;height:1.3rem;
+  border-radius:50%;background:var(--border);color:var(--text);font-size:.7rem;font-weight:700;margin-right:.4rem;flex:none}
+.step{display:flex;align-items:flex-start;margin-bottom:.15rem}
+.frame{border:2px dashed var(--border);border-radius:14px;padding:1.2rem;margin-top:2rem}
+.frame-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.8rem}
+.stage{flex:1;min-width:200px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flujo de request, Docker y despliegue</h1>
+  <p class="subtitle">De un click del cliente a la respuesta HTTP, y de un <code>git push</code> a producción. Ver <code>docs/REQUEST_FLOW.md</code>.</p>
+
+  <div class="row">
+    <div class="col">
+      <span class="badge badge-public">GET /api/v1/posts/{slug} — público</span>
+      <div class="step"><span class="num">1</span><div><div class="step-title">DispatcherServlet</div><div class="step-detail">recibe el request</div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">2</span><div><div class="step-title">SecurityFilterChain</div><div class="step-detail"><code>permitAll()</code> para GET público — pasa directo</div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">3</span><div><div class="step-title">PostController.detail(slug)</div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">4</span><div><div class="step-title">PostService.findPublishedBySlug()</div><div class="step-detail"><code>@Transactional(readOnly=true)</code></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">5</span><div><div class="step-title">PostRepository</div><div class="step-detail">filtra <code>status == PUBLISHED</code>; si no, <code>404</code></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">6</span><div><div class="step-title">Mapeo a PostDetailDto</div><div class="step-detail">dentro de la transacción (<code>Post.tags</code> es lazy, <code>open-in-view=false</code>)</div></div></div>
+      <div class="arrow">↓</div>
+      <div class="box"><div class="step-title">200 OK — JSON</div></div>
+    </div>
+
+    <div class="col">
+      <span class="badge badge-admin">POST /api/v1/admin/posts — admin</span>
+      <div class="step"><span class="num">1</span><div><div class="step-title">DispatcherServlet</div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">2</span><div><div class="step-title">JwtAuthenticationFilter</div><div class="step-detail">valida firma del JWT, puebla <code>SecurityContext</code> con <code>ROLE_ADMIN</code></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">3</span><div><div class="step-title">hasRole("ADMIN")</div><div class="step-detail">sin token válido → <span style="color:var(--bad);font-weight:600">401</span></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">4</span><div><div class="step-title">Bean Validation sobre PostRequest</div><div class="step-detail"><code>@NotBlank</code>/<code>@NotNull</code> fallan → <span style="color:var(--bad);font-weight:600">400</span></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">5</span><div><div class="step-title">AdminPostController.create() → PostService.create()</div><div class="step-detail">resuelve <code>tagIds</code>; alguno inválido → <span style="color:var(--bad);font-weight:600">400</span></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="num">6</span><div><div class="step-title">save() — slug duplicado</div><div class="step-detail"><code>GlobalExceptionHandler</code> traduce <code>UNIQUE</code> → <span style="color:var(--bad);font-weight:600">409</span></div></div></div>
+      <div class="arrow">↓</div>
+      <div class="box"><div class="step-title">201 Created — PostDetailDto</div></div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">Build — Dockerfile multi-stage</div>
+    <div class="row">
+      <div class="stage box">
+        <div class="step-title">Stage 1 — build (JDK)</div>
+        <div class="step-detail"><code>eclipse-temurin:17-jdk</code><br>
+          <code>dependency:go-offline</code> (cachea deps)<br>
+          <code>package -DskipTests</code></div>
+      </div>
+      <div class="arrow" style="align-self:center">→</div>
+      <div class="stage box">
+        <div class="step-title">Stage 2 — runtime (JRE)</div>
+        <div class="step-detail"><code>eclipse-temurin:17-jre</code><br>
+          solo copia el <code>.jar</code><br>
+          <code>ENTRYPOINT java -jar app.jar</code></div>
+      </div>
+    </div>
+    <div class="step-detail" style="margin-top:.8rem"><code>-DskipTests</code>: los tests necesitan Neon real, no hay perfil de test — nunca corren dentro del build de imagen.</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">Despliegue — sin pipeline en este repo</div>
+    <div class="row">
+      <div class="stage box"><div class="step-title">git push a main</div></div>
+      <div class="arrow" style="align-self:center">→</div>
+      <div class="stage box"><div class="step-title">Render (integración nativa con GitHub)</div><div class="step-detail">clona el commit, construye con el Dockerfile</div></div>
+      <div class="arrow" style="align-self:center">→</div>
+      <div class="stage box"><div class="step-title">Deploy</div><div class="step-detail">reemplaza la instancia anterior</div></div>
+    </div>
+    <div class="step-detail" style="margin-top:.8rem">No hay <code>.github/workflows</code> ni <code>render.yaml</code> — el trigger vive en el dashboard de Render, no en código. Logs/historial: Render → servicio → Events/Logs.</div>
+  </div>
+</div>
+</body>
+</html>

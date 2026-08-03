@@ -1,5 +1,7 @@
 # Estrategia de testing
 
+Diagrama: [diagrams/testing.html](diagrams/testing.html)
+
 ## Cómo correr los tests
 
 ```

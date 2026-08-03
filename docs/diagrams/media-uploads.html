@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>portfolio-cms — media_assets y R2</title>
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#f7f8fa; --panel:#ffffff; --text:#1c2128; --muted:#57606a; --border:#d0d7de;
+  --admin:#9a6700; --public:#1a7f37; --infra:#57606a; --db:#0969da; --r2:#f6821f; --code:#f0f2f5;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --border:#30363d;
+    --admin:#d29922; --public:#3fb950; --infra:#8b949e; --db:#58a6ff; --r2:#ffa04d; --code:#1c2128; }
+}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1.25rem 4rem;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:1.4rem;margin-bottom:.2rem}
+h2{font-size:1.05rem;margin:2.4rem 0 .8rem}
+.subtitle{color:var(--muted);margin-top:0;margin-bottom:2rem;font-size:.92rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);
+  padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+.box{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:.9rem 1.1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.arrow{text-align:center;color:var(--muted);font-size:1.3rem;line-height:1;margin:.1rem 0}
+.arrow-h{color:var(--muted);font-size:1.3rem;padding:0 .3rem}
+.step-title{font-weight:600;margin-bottom:.15rem}
+.step-detail{color:var(--muted);font-size:.85rem}
+.badge{display:inline-block;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;margin-bottom:.4rem}
+.badge-admin{background:rgba(154,103,0,.15);color:var(--admin)}
+.badge-public{background:rgba(26,127,55,.15);color:var(--public)}
+.badge-r2{background:rgba(246,130,31,.15);color:var(--r2)}
+.row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.6rem}
+.col{flex:1;min-width:220px}
+.frame{border:2px dashed var(--border);border-radius:14px;padding:1.2rem;margin-top:1.6rem}
+.frame-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>media_assets — subida a Cloudflare R2</h1>
+  <p class="subtitle">La tabla solo guarda metadata; el archivo vive en el bucket. Ver <code>docs/MEDIA_UPLOADS.md</code>.</p>
+
+  <div class="frame">
+    <div class="frame-label">Subida</div>
+    <span class="badge badge-admin">ADMIN</span>
+    <div class="box"><div class="step-title">POST /api/v1/admin/media <span class="step-detail">(multipart/form-data, campo <code>file</code>)</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="box"><div class="step-title">AdminMediaController → MediaAssetService.upload()</div></div>
+    <div class="arrow">↓</div>
+    <div class="row">
+      <div class="col box">
+        <span class="badge badge-r2">R2</span>
+        <div class="step-title">s3Client.putObject(...)</div>
+        <div class="step-detail">Key: <code>{uuid}-{nombre-sanitizado}</code>. Bucket: <code>r2.bucket-name</code>.</div>
+      </div>
+      <div class="col box">
+        <span class="badge" style="background:rgba(9,105,218,.15);color:var(--db)">DB</span>
+        <div class="step-title">mediaAssetRepository.saveAndFlush(...)</div>
+        <div class="step-detail">Fila con <code>filename</code>, <code>url</code>, <code>contentType</code>, <code>sizeBytes</code>, <code>uploadedAt</code>.</div>
+      </div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="box"><div class="step-title">201 — MediaAssetDto</div>
+      <div class="step-detail"><code>url</code> = <code>r2.public-url</code> + <code>/</code> + key, ej. <code>https://media.rafotijero.dev/&lt;key&gt;</code></div></div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">Servido al público — no pasa por el backend</div>
+    <div class="row">
+      <div class="col box"><span class="badge badge-public">PÚBLICO</span>
+        <div class="step-title">Cliente pega la URL en <code>Post.coverImageUrl</code>, <code>SiteProfile.cvUrl</code>, etc.</div></div>
+      <div class="arrow-h">→</div>
+      <div class="col box"><span class="badge badge-r2">R2</span>
+        <div class="step-title">media.rafotijero.dev sirve el objeto directo</div>
+        <div class="step-detail">Dominio custom conectado al bucket — Cloudflare resuelve DNS/SSL, el backend no interviene.</div></div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-label">Borrado</div>
+    <span class="badge badge-admin">ADMIN</span>
+    <div class="box"><div class="step-title">DELETE /api/v1/admin/media/{id}</div></div>
+    <div class="arrow">↓</div>
+    <div class="box"><div class="step-title">Deriva la key quitando <code>r2.public-url</code> del <code>url</code> guardado</div></div>
+    <div class="arrow">↓</div>
+    <div class="row">
+      <div class="col box"><span class="badge badge-r2">R2</span><div class="step-title">s3Client.deleteObject(key)</div></div>
+      <div class="col box"><div class="step-title">mediaAssetRepository.delete(asset)</div></div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="box"><div class="step-title">204 — objeto y fila eliminados</div></div>
+  </div>
+</div>
+</body>
+</html>
