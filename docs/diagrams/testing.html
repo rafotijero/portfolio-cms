@@ -64,17 +64,21 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background
 
   <div class="row">
     <div class="col frame">
-      <div class="frame-label">Excepción — test de conflicto 409</div>
+      <div class="frame-label">Excepción — efectos reales de DB (2 tests)</div>
       <div class="box"><div class="step-title"><code>@Transactional(propagation = NOT_SUPPORTED)</code></div>
-        <div class="step-detail">Solo en <code>createWithDuplicateNameReturnsConflict</code>. Sin TX de test, cada <code>POST</code> abre su <strong>propia</strong> transacción real.</div></div>
+        <div class="step-detail">Sin TX de test, cada <code>POST</code>/<code>DELETE</code> abre su <strong>propia</strong> transacción real, con flush/commit de verdad.</div></div>
       <div class="arrow">↓</div>
       <div class="box"><span class="badge badge-warn">COMMIT REAL</span>
-        <div class="step-title">El flush pasa de verdad</div>
-        <div class="step-detail">Postgres detecta el <code>UNIQUE</code> violado → <code>DataIntegrityViolationException</code> → <code>GlobalExceptionHandler</code> → <code>409</code>.</div></div>
+        <div class="step-title"><code>createWithDuplicateNameReturnsConflict</code></div>
+        <div class="step-detail">Postgres detecta el índice único violado → <code>DataIntegrityViolationException</code> → <code>GlobalExceptionHandler</code> → <code>409</code>.</div></div>
+      <div class="arrow">↓</div>
+      <div class="box"><span class="badge badge-ok">COMMIT REAL</span>
+        <div class="step-title"><code>nameAndSlugCanBeReusedAfterSoftDelete</code></div>
+        <div class="step-detail">Crea → borra (soft-delete real) → crea de nuevo con el mismo name/slug → <code>201</code>, prueba que el índice parcial libera el valor.</div></div>
       <div class="arrow">↓</div>
       <div class="box"><span class="badge badge-bad">CLEANUP MANUAL</span>
         <div class="step-title"><code>finally { tagRepository.deleteById(id) }</code></div>
-        <div class="step-detail">Sin rollback automático acá — hay que borrar la fila creada a mano.</div></div>
+        <div class="step-detail">Sin rollback automático acá — hay que borrar a mano la(s) fila(s) que quedaron activas.</div></div>
     </div>
 
     <div class="col frame">

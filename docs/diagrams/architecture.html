@@ -100,7 +100,22 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background
 
   <div class="box">
     <div class="step-title">api.dto — <code>record</code> (PostDetailDto, ProjectDto, ...)</div>
-    <div class="step-detail">Forma que ve el cliente por HTTP. Errores no manejados por el controller suben a <code>GlobalExceptionHandler</code> (ej. <code>UNIQUE</code> duplicado → <code>409</code>).</div>
+    <div class="step-detail">Forma que ve el cliente por HTTP. Errores no manejados por el controller suben a <code>GlobalExceptionHandler</code> (ej. índice único duplicado → <code>409</code>).</div>
+  </div>
+
+  <div class="row" style="margin-top:2rem">
+    <div class="col box">
+      <div class="step-title">Borrado lógico — hooks de Hibernate, no filtrado manual</div>
+      <div class="step-detail"><code>@SQLDelete</code> en la entidad convierte el <code>DELETE FROM</code> real en un
+      <code>UPDATE ... SET deleted_at = now()</code>; <code>@SQLRestriction("deleted_at IS NULL")</code> excluye esas
+      filas de <em>toda</em> consulta JPA automáticamente. Ningún service/repository/controller cambia una línea.</div>
+    </div>
+    <div class="col box">
+      <div class="step-title">Costo: índices únicos parciales</div>
+      <div class="step-detail">Los <code>UNIQUE</code> de <code>tags.name</code>/<code>slug</code>,
+      <code>posts.slug</code>, <code>projects.slug</code> pasaron a <code>CREATE UNIQUE INDEX ... WHERE
+      deleted_at IS NULL</code> — si no, una fila borrada bloquearía reusar su valor para siempre.</div>
+    </div>
   </div>
 
   <div class="legend">
